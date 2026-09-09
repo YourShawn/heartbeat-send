@@ -20,6 +20,11 @@ export function Player({
 
   useEffect(() => () => player.current.stop(), []);
 
+  useEffect(() => {
+    setBpm(recording.bpmNominal);
+    setPlaying(false);
+  }, [recording]);
+
   const path = useMemo(() => curvePath(recording), [recording]);
 
   async function toggle() {
@@ -56,7 +61,7 @@ export function Player({
           <span className="tag CUSTOM">{copy.listenLocal}</span>
         </div>
         <p style={{ color: "var(--muted)", marginTop: 10 }}>
-          {copy.timbres[recording.timbreCode]} · {recording.durationSeconds}s · {copy.capture[recording.captureMode]}
+          {recording.bpmNominal} BPM · {copy.timbres[recording.timbreCode]} · {recording.durationSeconds}s · {copy.capture[recording.captureMode]}
         </p>
         {recording.nonSensorLabel && (
           <p style={{ color: "var(--gold)", fontSize: "0.88rem" }}>{recording.nonSensorLabel}</p>

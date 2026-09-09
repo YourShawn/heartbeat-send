@@ -86,9 +86,9 @@ public class HeartbeatService {
                         new CurvePoint(0, request.bpmNominal()),
                         new CurvePoint(request.durationSeconds(), request.bpmNominal())
                 )
-                : request.curve();
+                : alignCurveToNominal(request.curve(), request.bpmNominal(), request.durationSeconds());
         HeartbeatRecording recording = baseRecording(owner);
-        recording.setTitle(request.title().trim());
+        recording.setTitle(alignTitleBpm(request.title().trim(), request.bpmNominal()));
         recording.setOriginTag(OriginTag.CUSTOM);
         recording.setSourceKind(SourceKind.CUSTOM);
         recording.setCaptureMode(CaptureMode.USER_DEFINED);
@@ -223,5 +223,40 @@ public class HeartbeatService {
             return null;
         }
         return value.trim();
+    }
+
+    private static List<CurvePoint> alignCurveToNominal(List<CurvePoint> curve, int bpmNominal, int durationSeconds) {
+        boolean flat = curve.stream().map(CurvePoint::bpm).distinct().count() <= 1;
+        java.util.ArrayList<CurvePoint> aligned = new java.util.ArrayList<>();
+        for (CurvePoint point : curve) {
+            double t = Math.min(Math.max(0, point.tSeconds()), durationSeconds);
+            int bpm = flat ? bpmNominal : point.bpm();
+            aligned.add(new CurvePoint(t, bpm));
+        }
+        if (aligned.isEmpty()) {
+            return List.of(new CurvePoint(0, bpmNominal), new CurvePoint(durationSeconds, bpmNominal));
+        }
+        if (aligned.get(0).tSeconds() != 0) {
+            aligned.add(0, new CurvePoint(0, flat ? bpmNominal : aligned.get(0).bpm()));
+        } else if (flat) {
+            aligned.set(0, new CurvePoint(0, bpmNominal));
+        }
+        CurvePoint last = aligned.get(aligned.size() - 1);
+        if (last.tSeconds() != durationSeconds) {
+            aligned.add(new CurvePoint(durationSeconds, flat ? bpmNominal : last.bpm()));
+        } else if (flat) {
+            aligned.set(aligned.size() - 1, new CurvePoint(durationSeconds, bpmNominal));
+        }
+        return List.copyOf(aligned);
+    }
+
+    private static String alignTitleBpm(String title, int bpmNominal) {
+        if (title == null || title.isBlank()) {
+            return "Pulse · " + bpmNominal + " BPM";
+        }
+        if (title.matches("(?i).*\\d+\\s*BPM.*")) {
+            return title.replaceAll("(?i)\\d+\\s*BPM", bpmNominal + " BPM");
+        }
+        return title + " · " + bpmNominal + " BPM";
     }
 }

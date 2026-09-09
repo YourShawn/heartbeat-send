@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { api } from "../api";
 import { OriginBadge } from "../components/Shell";
 import { useI18n } from "../i18n-context";
@@ -9,14 +9,38 @@ const FILTERS: Array<OriginTag | "ALL"> = ["ALL", "CUSTOM", "GENERATED", "MEASUR
 
 export function LibraryPage() {
   const { copy, lang } = useI18n();
+  const location = useLocation();
   const [filter, setFilter] = useState<OriginTag | "ALL">("ALL");
   const [items, setItems] = useState<Recording[]>([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async (origin: OriginTag | "ALL") => {
+    setLoading(true);
+    setError("");
+    try {
+      const tag = origin === "ALL" ? undefined : origin;
+      const rows = await api.list(tag);
+      setItems(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      setItems([]);
+      setError(err instanceof Error ? err.message : copy.error);
+    } finally {
+      setLoading(false);
+    }
+  }, [copy.error]);
 
   useEffect(() => {
-    const tag = filter === "ALL" ? undefined : filter;
-    api.list(tag).then(setItems).catch((err: Error) => setError(err.message));
-  }, [filter]);
+    void load(filter);
+  }, [filter, load, location.key]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      void load(filter);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [filter, load]);
 
   return (
     <div>
@@ -37,7 +61,8 @@ export function LibraryPage() {
         ))}
       </div>
       {error && <p className="error">{error}</p>}
-      {!items.length && <p style={{ color: "var(--muted)" }}>{copy.empty}</p>}
+      {loading && !items.length ? <p style={{ color: "var(--muted)" }}>{copy.loading}</p> : null}
+      {!loading && !items.length && !error ? <p style={{ color: "var(--muted)" }}>{copy.empty}</p> : null}
       <div className="grid cards">
         {items.map((item) => (
           <Link key={item.recordingId} to={`/play/${item.recordingId}`} className="card pulse-card" style={{ textDecoration: "none" }}>

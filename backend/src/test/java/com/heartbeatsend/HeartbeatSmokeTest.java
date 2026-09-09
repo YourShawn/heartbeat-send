@@ -112,7 +112,7 @@ class HeartbeatSmokeTest {
 
         mockMvc.perform(get("/api/public/heartbeats/" + shareToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.title").value("Studio pulse"))
+                .andExpect(jsonPath("$.title").value("Studio pulse · 72 BPM"))
                 .andExpect(jsonPath("$.bpmNominal").value(72));
 
         mockMvc.perform(get("/api/wearable/status").header("Authorization", bearer(token)))
@@ -123,6 +123,59 @@ class HeartbeatSmokeTest {
 
         mockMvc.perform(delete("/api/heartbeats/" + customId).header("Authorization", bearer(token)))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void customCreateAlignsFlatCurveAndTitleToNominalBpm() throws Exception {
+        String token = login();
+
+        MvcResult result = mockMvc.perform(post("/api/heartbeats/custom")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Studio pulse",
+                                  "bpmNominal": 96,
+                                  "timbreCode": "HEART",
+                                  "durationSeconds": 45,
+                                  "curve": [
+                                    {"tSeconds": 0, "bpm": 72},
+                                    {"tSeconds": 45, "bpm": 72}
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.bpmNominal").value(96))
+                .andExpect(jsonPath("$.title").value("Studio pulse · 96 BPM"))
+                .andExpect(jsonPath("$.curve[0].bpm").value(96))
+                .andExpect(jsonPath("$.curve[1].bpm").value(96))
+                .andReturn();
+        long id = idOf(result);
+
+        mockMvc.perform(get("/api/heartbeats").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].recordingId").value(id))
+                .andExpect(jsonPath("$[0].title").value("Studio pulse · 96 BPM"))
+                .andExpect(jsonPath("$[0].bpmNominal").value(96));
+    }
+
+    @Test
+    void synthTitleIncludesBpm() throws Exception {
+        String token = login();
+        mockMvc.perform(post("/api/heartbeats/synth")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "situationCode": "REST",
+                                  "moodCode": "CALM",
+                                  "intensityCode": "LOW",
+                                  "durationSeconds": 30
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value(org.hamcrest.Matchers.matchesPattern(".*\\d{2,3} BPM$")))
+                .andExpect(jsonPath("$.bpmNominal").isNumber());
     }
 
     @Test

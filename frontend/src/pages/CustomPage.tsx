@@ -6,6 +6,33 @@ import type { CurvePoint, TimbreCode } from "../types";
 
 const TIMBRES: TimbreCode[] = ["HEART", "SOFT", "SINE", "DRUM"];
 
+function syncFlatCurve(curve: CurvePoint[], bpm: number, duration: number): CurvePoint[] {
+  const clamped = curve
+    .map((p) => ({ tSeconds: Math.min(Math.max(0, p.tSeconds), duration), bpm: p.bpm }))
+    .sort((a, b) => a.tSeconds - b.tSeconds);
+  const flat = clamped.length > 0 && clamped.every((p) => p.bpm === clamped[0].bpm);
+  const withBpm = flat ? clamped.map((p) => ({ ...p, bpm })) : clamped;
+  if (!withBpm.length) {
+    return [
+      { tSeconds: 0, bpm },
+      { tSeconds: duration, bpm },
+    ];
+  }
+  const points = [...withBpm];
+  if (points[0].tSeconds !== 0) {
+    points.unshift({ tSeconds: 0, bpm: flat ? bpm : points[0].bpm });
+  } else if (flat) {
+    points[0] = { ...points[0], bpm };
+  }
+  const last = points[points.length - 1];
+  if (last.tSeconds !== duration) {
+    points.push({ tSeconds: duration, bpm: flat ? bpm : last.bpm });
+  } else if (flat) {
+    points[points.length - 1] = { ...last, bpm };
+  }
+  return points;
+}
+
 export function CustomPage() {
   const { copy } = useI18n();
   const navigate = useNavigate();
@@ -24,17 +51,38 @@ export function CustomPage() {
     setCurve((current) => current.map((p, i) => (i === index ? { ...p, ...patch } : p)));
   }
 
+  function onBpmChange(next: number) {
+    setBpm(next);
+    setTitle((current) => current.replace(/(\d+)\s*BPM/i, `${next} BPM`));
+    setCurve((current) => {
+      const flat = current.length > 0 && current.every((p) => p.bpm === current[0].bpm);
+      return flat ? current.map((p) => ({ ...p, bpm: next })) : current;
+    });
+  }
+
+  function onDurationChange(next: number) {
+    setDuration(next);
+    setCurve((current) => syncFlatCurve(current, bpm, next));
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError("");
     try {
+      const synced = syncFlatCurve(curve, bpm, duration);
+      let saveTitle = title.trim() || "My pulse";
+      if (!/\bBPM\b/i.test(saveTitle)) {
+        saveTitle = `${saveTitle} · ${bpm} BPM`;
+      } else {
+        saveTitle = saveTitle.replace(/(\d+)\s*BPM/i, `${bpm} BPM`);
+      }
       const saved = await api.createCustom({
-        title,
+        title: saveTitle,
         bpmNominal: bpm,
         timbreCode: timbre,
         durationSeconds: duration,
-        curve,
+        curve: synced,
       });
       navigate(`/play/${saved.recordingId}`);
     } catch (err) {
@@ -56,7 +104,7 @@ export function CustomPage() {
       </label>
       <label className="field">
         <span>{copy.bpm}: {bpm}</span>
-        <input type="range" min={40} max={180} value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
+        <input type="range" min={40} max={180} value={bpm} onChange={(e) => onBpmChange(Number(e.target.value))} />
       </label>
       <label className="field">
         <span>{copy.timbre}</span>
@@ -66,7 +114,7 @@ export function CustomPage() {
       </label>
       <label className="field">
         <span>{copy.duration}: {duration}</span>
-        <input type="range" min={10} max={180} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
+        <input type="range" min={10} max={180} value={duration} onChange={(e) => onDurationChange(Number(e.target.value))} />
       </label>
       <div className="curve-editor">
         {curve.map((point, index) => (

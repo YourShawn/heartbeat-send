@@ -39,8 +39,11 @@ public class RuleSynthEngine {
         TimbreCode timbre = timbreFor(situation, mood);
         List<CurvePoint> curve = curveFor(situation, mood, bpm, request.durationSeconds());
         String title = (request.title() == null || request.title().isBlank())
-                ? defaultTitle(situation, mood)
-                : request.title().trim();
+                ? defaultTitle(situation, mood) + " · " + bpm + " BPM"
+                : request.title().trim().replaceAll("(?i)\\d+\\s*BPM", bpm + " BPM");
+        if (request.title() != null && !request.title().isBlank() && !title.matches("(?i).*\\d+\\s*BPM.*")) {
+            title = title + " · " + bpm + " BPM";
+        }
 
         return new SynthPlan(
                 title,
