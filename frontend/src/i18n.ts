@@ -1,0 +1,166 @@
+export type Lang = "zh" | "en";
+
+const COPY = {
+  zh: {
+    brand: "听·存心跳",
+    brandEn: "Heartbeat Send",
+    tagline: "把一记脉搏留下来——自定义、生成，或来自可穿戴的占位接口。",
+    disclaimer: "本应用不是医疗器械，不能用于诊断、监护或治疗。数据仅供聆听与保存。",
+    loginTitle: "进入聆听室",
+    loginHint: "演示账号 demo / demo123",
+    username: "用户名",
+    password: "密码",
+    signIn: "登录",
+    library: "收藏",
+    custom: "自定义",
+    synth: "生成",
+    wearable: "真测",
+    play: "播放",
+    pause: "暂停",
+    save: "保存到收藏",
+    share: "分享链接",
+    unshare: "关闭分享",
+    copied: "已复制链接",
+    delete: "删除",
+    signOut: "退出",
+    empty: "还没有脉搏。从自定义开始，或用情境问卷生成一记。",
+    all: "全部",
+    title: "标题",
+    bpm: "BPM",
+    timbre: "音色",
+    duration: "时长（秒）",
+    curveHint: "曲线：时间（秒）与 BPM。留空则使用平稳节拍。",
+    addPoint: "加点",
+    situation: "情境",
+    mood: "心情",
+    intensity: "强度",
+    note: "补充说明（可选）",
+    generate: "生成脉搏",
+    synthBanner: "生成结果一律标记为「非传感器」，不是真实心率。",
+    wearableTitle: "可穿戴占位",
+    wearableBody: "真实设备接口已预留。当前只能保存模拟会话，并标为真测路径下的模拟数据。",
+    mockCapture: "保存模拟会话",
+    notSensor: "非传感器",
+    medical: "非医疗级",
+    listenLocal: "仅在本机播放",
+    sharePage: "有人把一记脉搏寄给你",
+    loading: "载入中…",
+    error: "出错了",
+    timbres: { SINE: "正弦", HEART: "心跳", DRUM: "鼓点", SOFT: "柔和" },
+    situations: {
+      REST: "静息",
+      WALKING: "行走",
+      EXERCISE: "运动",
+      ANXIOUS: "紧张",
+      SLEEP: "入睡",
+      TENDER: "温柔",
+      CUSTOM: "其他",
+    },
+    moods: {
+      CALM: "平静",
+      EXCITED: "兴奋",
+      STRESSED: "压力",
+      TENDER: "柔软",
+      ENERGETIC: "有力",
+    },
+    intensities: { LOW: "低", MEDIUM: "中", HIGH: "高" },
+    capture: {
+      USER_DEFINED: "手绘曲线",
+      RULE_SYNTH: "规则引擎",
+      OPENAI_SYNTH: "模型合成",
+      WEARABLE_MOCK: "设备模拟",
+      WEARABLE_LIVE: "实时设备",
+    },
+  },
+  en: {
+    brand: "Heartbeat Send",
+    brandEn: "听·存心跳",
+    tagline: "Keep a pulse — custom, synthesized, or a wearable placeholder.",
+    disclaimer: "Not a medical device. Not for diagnosis, monitoring, or treatment. For listening and keeping only.",
+    loginTitle: "Enter the listening room",
+    loginHint: "Demo account demo / demo123",
+    username: "Username",
+    password: "Password",
+    signIn: "Sign in",
+    library: "Library",
+    custom: "Custom",
+    synth: "Synth",
+    wearable: "Measured",
+    play: "Play",
+    pause: "Pause",
+    save: "Save to library",
+    share: "Share link",
+    unshare: "Disable share",
+    copied: "Link copied",
+    delete: "Delete",
+    signOut: "Sign out",
+    empty: "No pulses yet. Start with a custom curve, or ask the questionnaire.",
+    all: "All",
+    title: "Title",
+    bpm: "BPM",
+    timbre: "Timbre",
+    duration: "Duration (sec)",
+    curveHint: "Curve: seconds vs BPM. Leave empty for a steady beat.",
+    addPoint: "Add point",
+    situation: "Situation",
+    mood: "Mood",
+    intensity: "Intensity",
+    note: "Optional note",
+    generate: "Synthesize pulse",
+    synthBanner: "Synthesized pulses are always labeled non-sensor — never a real heart-rate reading.",
+    wearableTitle: "Wearable placeholder",
+    wearableBody: "The live-device interface is reserved. Today you can only save a mock session, tagged on the measured path and marked as simulation.",
+    mockCapture: "Save mock session",
+    notSensor: "Non-sensor",
+    medical: "Not medical-grade",
+    listenLocal: "Plays on this device",
+    sharePage: "Someone sent you a pulse",
+    loading: "Loading…",
+    error: "Something went wrong",
+    timbres: { SINE: "Sine", HEART: "Heart", DRUM: "Drum", SOFT: "Soft" },
+    situations: {
+      REST: "Rest",
+      WALKING: "Walking",
+      EXERCISE: "Exercise",
+      ANXIOUS: "Anxious",
+      SLEEP: "Sleep",
+      TENDER: "Tender",
+      CUSTOM: "Other",
+    },
+    moods: {
+      CALM: "Calm",
+      EXCITED: "Excited",
+      STRESSED: "Stressed",
+      TENDER: "Tender",
+      ENERGETIC: "Energetic",
+    },
+    intensities: { LOW: "Low", MEDIUM: "Medium", HIGH: "High" },
+    capture: {
+      USER_DEFINED: "Hand-drawn",
+      RULE_SYNTH: "Rule engine",
+      OPENAI_SYNTH: "Model synth",
+      WEARABLE_MOCK: "Device mock",
+      WEARABLE_LIVE: "Live device",
+    },
+  },
+} as const;
+
+export type Copy = (typeof COPY)[Lang];
+
+const LANG_KEY = "heartbeat.send.lang";
+
+export function readLang(): Lang {
+  const stored = localStorage.getItem(LANG_KEY);
+  if (stored === "zh" || stored === "en") {
+    return stored;
+  }
+  return navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+export function writeLang(lang: Lang): void {
+  localStorage.setItem(LANG_KEY, lang);
+}
+
+export function t(lang: Lang): Copy {
+  return COPY[lang];
+}
