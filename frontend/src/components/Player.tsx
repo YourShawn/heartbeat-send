@@ -18,6 +18,12 @@ export function Player({
   const [bpm, setBpm] = useState(recording.bpmNominal);
   const [beat, setBeat] = useState(false);
 
+  useEffect(() => {
+    setBpm(recording.bpmNominal);
+    setPlaying(false);
+    player.current.stop();
+  }, [recording.recordingId, recording.bpmNominal]);
+
   useEffect(() => () => player.current.stop(), []);
 
   const path = useMemo(() => curvePath(recording), [recording]);
@@ -26,6 +32,7 @@ export function Player({
     if (playing) {
       player.current.stop();
       setPlaying(false);
+      setBpm(recording.bpmNominal);
       return;
     }
     setPlaying(true);
@@ -56,7 +63,7 @@ export function Player({
           <span className="tag CUSTOM">{copy.listenLocal}</span>
         </div>
         <p style={{ color: "var(--muted)", marginTop: 10 }}>
-          {copy.timbres[recording.timbreCode]} · {recording.durationSeconds}s · {copy.capture[recording.captureMode]}
+          {recording.bpmNominal} BPM · {copy.timbres[recording.timbreCode]} · {recording.durationSeconds}s · {copy.capture[recording.captureMode]}
         </p>
         {recording.nonSensorLabel && (
           <p style={{ color: "var(--gold)", fontSize: "0.88rem" }}>{recording.nonSensorLabel}</p>

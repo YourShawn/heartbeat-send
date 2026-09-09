@@ -39,7 +39,7 @@ public class RuleSynthEngine {
         TimbreCode timbre = timbreFor(situation, mood);
         List<CurvePoint> curve = curveFor(situation, mood, bpm, request.durationSeconds());
         String title = (request.title() == null || request.title().isBlank())
-                ? defaultTitle(situation, mood)
+                ? defaultTitle(situation, mood, bpm)
                 : request.title().trim();
 
         return new SynthPlan(
@@ -131,9 +131,10 @@ public class RuleSynthEngine {
         return points;
     }
 
-    private static String defaultTitle(String situation, String mood) {
+    private static String defaultTitle(String situation, String mood, int bpm) {
         return "Synth · " + situation.charAt(0) + situation.substring(1).toLowerCase(Locale.ROOT)
-                + " / " + mood.charAt(0) + mood.substring(1).toLowerCase(Locale.ROOT);
+                + " / " + mood.charAt(0) + mood.substring(1).toLowerCase(Locale.ROOT)
+                + " · " + bpm + " BPM";
     }
 
     private static int clamp(int value, int min, int max) {

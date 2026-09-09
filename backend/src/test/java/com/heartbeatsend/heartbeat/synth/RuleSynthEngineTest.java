@@ -22,6 +22,7 @@ class RuleSynthEngineTest {
         assertThat(plan.bpmNominal()).isBetween(48, 80);
         assertThat(plan.timbreCode()).isIn(TimbreCode.HEART, TimbreCode.SOFT);
         assertThat(plan.curve()).hasSizeGreaterThan(2);
+        assertThat(plan.title()).contains(plan.bpmNominal() + " BPM");
     }
 
     @Test

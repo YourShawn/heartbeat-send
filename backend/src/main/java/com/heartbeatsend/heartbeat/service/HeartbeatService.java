@@ -81,20 +81,17 @@ public class HeartbeatService {
 
     @Transactional
     public RecordingResponse createCustom(AppUser owner, CreateCustomRequest request) {
-        List<CurvePoint> curve = request.curve() == null || request.curve().isEmpty()
-                ? List.of(
-                        new CurvePoint(0, request.bpmNominal()),
-                        new CurvePoint(request.durationSeconds(), request.bpmNominal())
-                )
-                : request.curve();
+        int bpmNominal = BpmAlignment.clampBpm(request.bpmNominal());
+        List<CurvePoint> curve = BpmAlignment.alignCurveToNominal(
+                request.curve(), bpmNominal, request.durationSeconds());
         HeartbeatRecording recording = baseRecording(owner);
-        recording.setTitle(request.title().trim());
+        recording.setTitle(BpmAlignment.alignTitleBpm(request.title(), bpmNominal));
         recording.setOriginTag(OriginTag.CUSTOM);
         recording.setSourceKind(SourceKind.CUSTOM);
         recording.setCaptureMode(CaptureMode.USER_DEFINED);
         recording.setSensorOrigin(false);
         recording.setNonSensorLabel(CUSTOM_NON_SENSOR_LABEL);
-        recording.setBpmNominal(request.bpmNominal());
+        recording.setBpmNominal(bpmNominal);
         recording.setTimbreCode(request.timbreCode());
         recording.setCurveJson(RecordingMapper.writeCurve(curve, objectMapper));
         recording.setDurationSeconds(request.durationSeconds());
@@ -119,16 +116,19 @@ public class HeartbeatService {
                 "MEDIUM"
         );
         SynthPlan plan = synthService.synthesize(request);
+        int bpmNominal = BpmAlignment.clampBpm(plan.bpmNominal());
+        List<CurvePoint> curve = BpmAlignment.alignCurveToNominal(
+                plan.curve(), bpmNominal, request.durationSeconds());
         HeartbeatRecording recording = baseRecording(owner);
-        recording.setTitle(plan.title());
+        recording.setTitle(BpmAlignment.alignTitleBpm(plan.title(), bpmNominal));
         recording.setOriginTag(OriginTag.GENERATED);
         recording.setSourceKind(SourceKind.SYNTH);
         recording.setCaptureMode(plan.captureMode());
         recording.setSensorOrigin(false);
         recording.setNonSensorLabel(plan.nonSensorLabel());
-        recording.setBpmNominal(plan.bpmNominal());
+        recording.setBpmNominal(bpmNominal);
         recording.setTimbreCode(plan.timbreCode());
-        recording.setCurveJson(RecordingMapper.writeCurve(plan.curve(), objectMapper));
+        recording.setCurveJson(RecordingMapper.writeCurve(curve, objectMapper));
         recording.setDurationSeconds(request.durationSeconds());
         recording.setSituationCode(situation);
         recording.setMoodCode(mood);
@@ -144,19 +144,21 @@ public class HeartbeatService {
                 ? 45
                 : request.durationSeconds();
         WearableHeartRateProvider.WearableSample sample = wearableHeartRateProvider.captureMockSession(duration);
+        int bpmNominal = BpmAlignment.clampBpm(sample.bpmNominal());
+        List<CurvePoint> curve = BpmAlignment.alignCurveToNominal(sample.curve(), bpmNominal, duration);
         String title = request.title() == null || request.title().isBlank()
-                ? "Wearable mock · " + sample.bpmNominal() + " BPM"
+                ? "Wearable mock · " + bpmNominal + " BPM"
                 : request.title().trim();
         HeartbeatRecording recording = baseRecording(owner);
-        recording.setTitle(title);
+        recording.setTitle(BpmAlignment.alignTitleBpm(title, bpmNominal));
         recording.setOriginTag(OriginTag.MEASURED);
         recording.setSourceKind(SourceKind.WEARABLE);
         recording.setCaptureMode(CaptureMode.WEARABLE_MOCK);
         recording.setSensorOrigin(false);
         recording.setNonSensorLabel(sample.sourceNote());
-        recording.setBpmNominal(sample.bpmNominal());
+        recording.setBpmNominal(bpmNominal);
         recording.setTimbreCode(TimbreCode.HEART);
-        recording.setCurveJson(RecordingMapper.writeCurve(sample.curve(), objectMapper));
+        recording.setCurveJson(RecordingMapper.writeCurve(curve, objectMapper));
         recording.setDurationSeconds(duration);
         return toResponse(recordingRepository.save(recording));
     }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { api } from "../api";
 import { OriginBadge } from "../components/Shell";
 import { useI18n } from "../i18n-context";
@@ -9,13 +9,54 @@ const FILTERS: Array<OriginTag | "ALL"> = ["ALL", "CUSTOM", "GENERATED", "MEASUR
 
 export function LibraryPage() {
   const { copy, lang } = useI18n();
+  const location = useLocation();
   const [filter, setFilter] = useState<OriginTag | "ALL">("ALL");
   const [items, setItems] = useState<Recording[]>([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const tag = filter === "ALL" ? undefined : filter;
-    api.list(tag).then(setItems).catch((err: Error) => setError(err.message));
+    setLoading(true);
+    setItems([]);
+    api.list(tag)
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+        setItems(Array.isArray(data) ? data : []);
+        setError("");
+      })
+      .catch((err: Error) => {
+        if (cancelled) {
+          return;
+        }
+        setItems([]);
+        setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filter, location.key]);
+
+  useEffect(() => {
+    function onFocus() {
+      const tag = filter === "ALL" ? undefined : filter;
+      api.list(tag)
+        .then((data) => {
+          setItems(Array.isArray(data) ? data : []);
+          setError("");
+        })
+        .catch((err: Error) => setError(err.message));
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [filter]);
 
   return (
@@ -37,7 +78,8 @@ export function LibraryPage() {
         ))}
       </div>
       {error && <p className="error">{error}</p>}
-      {!items.length && <p style={{ color: "var(--muted)" }}>{copy.empty}</p>}
+      {loading && <p style={{ color: "var(--muted)" }}>{copy.loading}</p>}
+      {!loading && !items.length && !error && <p style={{ color: "var(--muted)" }}>{copy.empty}</p>}
       <div className="grid cards">
         {items.map((item) => (
           <Link key={item.recordingId} to={`/play/${item.recordingId}`} className="card pulse-card" style={{ textDecoration: "none" }}>

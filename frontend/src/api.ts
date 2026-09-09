@@ -54,9 +54,10 @@ export const api = {
 
   me: () => request<UserProfile>("/api/auth/me"),
 
-  list: (originTag?: OriginTag) => {
+  list: async (originTag?: OriginTag) => {
     const q = originTag ? `?originTag=${originTag}` : "";
-    return request<Recording[]>(`/api/heartbeats${q}`);
+    const data = await request<unknown>(`/api/heartbeats${q}`);
+    return Array.isArray(data) ? (data as Recording[]) : [];
   },
 
   get: (id: number) => request<Recording>(`/api/heartbeats/${id}`),
