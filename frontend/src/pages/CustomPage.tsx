@@ -5,15 +5,38 @@ import { useI18n } from "../i18n-context";
 import type { CurvePoint, TimbreCode } from "../types";
 
 const TIMBRES: TimbreCode[] = ["HEART", "SOFT", "SINE", "DRUM"];
-const MIN_BPM = 40;
-const MAX_BPM = 180;
-const MIN_DURATION = 10;
-const MAX_DURATION = 180;
+
+function syncFlatCurve(curve: CurvePoint[], bpm: number, duration: number): CurvePoint[] {
+  const clamped = curve
+    .map((p) => ({ tSeconds: Math.min(Math.max(0, p.tSeconds), duration), bpm: p.bpm }))
+    .sort((a, b) => a.tSeconds - b.tSeconds);
+  const flat = clamped.length > 0 && clamped.every((p) => p.bpm === clamped[0].bpm);
+  const withBpm = flat ? clamped.map((p) => ({ ...p, bpm })) : clamped;
+  if (!withBpm.length) {
+    return [
+      { tSeconds: 0, bpm },
+      { tSeconds: duration, bpm },
+    ];
+  }
+  const points = [...withBpm];
+  if (points[0].tSeconds !== 0) {
+    points.unshift({ tSeconds: 0, bpm: flat ? bpm : points[0].bpm });
+  } else if (flat) {
+    points[0] = { ...points[0], bpm };
+  }
+  const last = points[points.length - 1];
+  if (last.tSeconds !== duration) {
+    points.push({ tSeconds: duration, bpm: flat ? bpm : last.bpm });
+  } else if (flat) {
+    points[points.length - 1] = { ...last, bpm };
+  }
+  return points;
+}
 
 export function CustomPage() {
   const { copy } = useI18n();
   const navigate = useNavigate();
-  const [title, setTitle] = useState("My pulse · 72 BPM");
+  const [title, setTitle] = useState("My pulse");
   const [bpm, setBpm] = useState(72);
   const [timbre, setTimbre] = useState<TimbreCode>("HEART");
   const [duration, setDuration] = useState(45);
@@ -25,36 +48,21 @@ export function CustomPage() {
   const [busy, setBusy] = useState(false);
 
   function updatePoint(index: number, patch: Partial<CurvePoint>) {
-    setCurve((current) => current.map((p, i) => {
-      if (i !== index) {
-        return p;
-      }
-      const next = { ...p, ...patch };
-      return {
-        tSeconds: clamp(next.tSeconds, 0, duration),
-        bpm: Math.round(clamp(next.bpm, 40, 220)),
-      };
-    }));
+    setCurve((current) => current.map((p, i) => (i === index ? { ...p, ...patch } : p)));
   }
 
   function onBpmChange(next: number) {
-    const value = Math.round(clamp(next, MIN_BPM, MAX_BPM));
-    setBpm(value);
-    setTitle((current) => syncTitleBpm(current, value));
-    setCurve((current) => (isFlatCurve(current)
-      ? current.map((p) => ({ ...p, bpm: value }))
-      : current));
+    setBpm(next);
+    setTitle((current) => current.replace(/(\d+)\s*BPM/i, `${next} BPM`));
+    setCurve((current) => {
+      const flat = current.length > 0 && current.every((p) => p.bpm === current[0].bpm);
+      return flat ? current.map((p) => ({ ...p, bpm: next })) : current;
+    });
   }
 
   function onDurationChange(next: number) {
-    const value = Math.round(clamp(next, MIN_DURATION, MAX_DURATION));
-    setDuration(value);
-    setCurve((current) => current.map((p, i) => ({
-      ...p,
-      tSeconds: i === current.length - 1
-        ? value
-        : clamp(p.tSeconds, 0, value),
-    })));
+    setDuration(next);
+    setCurve((current) => syncFlatCurve(current, bpm, next));
   }
 
   async function onSubmit(event: FormEvent) {
@@ -62,12 +70,19 @@ export function CustomPage() {
     setBusy(true);
     setError("");
     try {
+      const synced = syncFlatCurve(curve, bpm, duration);
+      let saveTitle = title.trim() || "My pulse";
+      if (!/\bBPM\b/i.test(saveTitle)) {
+        saveTitle = `${saveTitle} · ${bpm} BPM`;
+      } else {
+        saveTitle = saveTitle.replace(/(\d+)\s*BPM/i, `${bpm} BPM`);
+      }
       const saved = await api.createCustom({
-        title: syncTitleBpm(title, bpm),
+        title: saveTitle,
         bpmNominal: bpm,
         timbreCode: timbre,
-        durationSeconds: clamp(duration, MIN_DURATION, MAX_DURATION),
-        curve: isFlatCurve(curve) ? curve.map((p) => ({ ...p, bpm })) : curve,
+        durationSeconds: duration,
+        curve: synced,
       });
       navigate(`/play/${saved.recordingId}`);
     } catch (err) {
@@ -89,7 +104,7 @@ export function CustomPage() {
       </label>
       <label className="field">
         <span>{copy.bpm}: {bpm}</span>
-        <input type="range" min={MIN_BPM} max={MAX_BPM} value={bpm} onChange={(e) => onBpmChange(Number(e.target.value))} />
+        <input type="range" min={40} max={180} value={bpm} onChange={(e) => onBpmChange(Number(e.target.value))} />
       </label>
       <label className="field">
         <span>{copy.timbre}</span>
@@ -99,7 +114,7 @@ export function CustomPage() {
       </label>
       <label className="field">
         <span>{copy.duration}: {duration}</span>
-        <input type="range" min={MIN_DURATION} max={MAX_DURATION} value={duration} onChange={(e) => onDurationChange(Number(e.target.value))} />
+        <input type="range" min={10} max={180} value={duration} onChange={(e) => onDurationChange(Number(e.target.value))} />
       </label>
       <div className="curve-editor">
         {curve.map((point, index) => (
@@ -137,24 +152,4 @@ export function CustomPage() {
       <button className="primary" type="submit" disabled={busy}>{copy.save}</button>
     </form>
   );
-}
-
-function isFlatCurve(points: CurvePoint[]): boolean {
-  if (points.length === 0) {
-    return true;
-  }
-  return points.every((p) => p.bpm === points[0].bpm);
-}
-
-function syncTitleBpm(title: string, nextBpm: number): string {
-  const token = `${nextBpm} BPM`;
-  if (/\b\d{2,3}\s*BPM\b/i.test(title)) {
-    return title.replace(/\b\d{2,3}\s*BPM\b/i, token);
-  }
-  const trimmed = title.trim();
-  return trimmed ? `${trimmed} · ${token}` : token;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }

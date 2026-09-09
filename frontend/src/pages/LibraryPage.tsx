@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { api } from "../api";
 import { OriginBadge } from "../components/Shell";
@@ -15,49 +15,32 @@ export function LibraryPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    const tag = filter === "ALL" ? undefined : filter;
+  const load = useCallback(async (origin: OriginTag | "ALL") => {
     setLoading(true);
-    setItems([]);
-    api.list(tag)
-      .then((data) => {
-        if (cancelled) {
-          return;
-        }
-        setItems(Array.isArray(data) ? data : []);
-        setError("");
-      })
-      .catch((err: Error) => {
-        if (cancelled) {
-          return;
-        }
-        setItems([]);
-        setError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [filter, location.key]);
+    setError("");
+    try {
+      const tag = origin === "ALL" ? undefined : origin;
+      const rows = await api.list(tag);
+      setItems(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      setItems([]);
+      setError(err instanceof Error ? err.message : copy.error);
+    } finally {
+      setLoading(false);
+    }
+  }, [copy.error]);
 
   useEffect(() => {
-    function onFocus() {
-      const tag = filter === "ALL" ? undefined : filter;
-      api.list(tag)
-        .then((data) => {
-          setItems(Array.isArray(data) ? data : []);
-          setError("");
-        })
-        .catch((err: Error) => setError(err.message));
-    }
+    void load(filter);
+  }, [filter, load, location.key]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      void load(filter);
+    };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [filter]);
+  }, [filter, load]);
 
   return (
     <div>
@@ -78,8 +61,8 @@ export function LibraryPage() {
         ))}
       </div>
       {error && <p className="error">{error}</p>}
-      {loading && <p style={{ color: "var(--muted)" }}>{copy.loading}</p>}
-      {!loading && !items.length && !error && <p style={{ color: "var(--muted)" }}>{copy.empty}</p>}
+      {loading && !items.length ? <p style={{ color: "var(--muted)" }}>{copy.loading}</p> : null}
+      {!loading && !items.length && !error ? <p style={{ color: "var(--muted)" }}>{copy.empty}</p> : null}
       <div className="grid cards">
         {items.map((item) => (
           <Link key={item.recordingId} to={`/play/${item.recordingId}`} className="card pulse-card" style={{ textDecoration: "none" }}>

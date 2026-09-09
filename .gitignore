@@ -28,3 +28,4 @@ logs/
 # Test
 **/coverage/
 backend/hs_err_pid*
+docker-compose.override.yml

@@ -81,17 +81,20 @@ public class HeartbeatService {
 
     @Transactional
     public RecordingResponse createCustom(AppUser owner, CreateCustomRequest request) {
-        int bpmNominal = BpmAlignment.clampBpm(request.bpmNominal());
-        List<CurvePoint> curve = BpmAlignment.alignCurveToNominal(
-                request.curve(), bpmNominal, request.durationSeconds());
+        List<CurvePoint> curve = request.curve() == null || request.curve().isEmpty()
+                ? List.of(
+                        new CurvePoint(0, request.bpmNominal()),
+                        new CurvePoint(request.durationSeconds(), request.bpmNominal())
+                )
+                : alignCurveToNominal(request.curve(), request.bpmNominal(), request.durationSeconds());
         HeartbeatRecording recording = baseRecording(owner);
-        recording.setTitle(BpmAlignment.alignTitleBpm(request.title(), bpmNominal));
+        recording.setTitle(alignTitleBpm(request.title().trim(), request.bpmNominal()));
         recording.setOriginTag(OriginTag.CUSTOM);
         recording.setSourceKind(SourceKind.CUSTOM);
         recording.setCaptureMode(CaptureMode.USER_DEFINED);
         recording.setSensorOrigin(false);
         recording.setNonSensorLabel(CUSTOM_NON_SENSOR_LABEL);
-        recording.setBpmNominal(bpmNominal);
+        recording.setBpmNominal(request.bpmNominal());
         recording.setTimbreCode(request.timbreCode());
         recording.setCurveJson(RecordingMapper.writeCurve(curve, objectMapper));
         recording.setDurationSeconds(request.durationSeconds());
@@ -116,19 +119,16 @@ public class HeartbeatService {
                 "MEDIUM"
         );
         SynthPlan plan = synthService.synthesize(request);
-        int bpmNominal = BpmAlignment.clampBpm(plan.bpmNominal());
-        List<CurvePoint> curve = BpmAlignment.alignCurveToNominal(
-                plan.curve(), bpmNominal, request.durationSeconds());
         HeartbeatRecording recording = baseRecording(owner);
-        recording.setTitle(BpmAlignment.alignTitleBpm(plan.title(), bpmNominal));
+        recording.setTitle(plan.title());
         recording.setOriginTag(OriginTag.GENERATED);
         recording.setSourceKind(SourceKind.SYNTH);
         recording.setCaptureMode(plan.captureMode());
         recording.setSensorOrigin(false);
         recording.setNonSensorLabel(plan.nonSensorLabel());
-        recording.setBpmNominal(bpmNominal);
+        recording.setBpmNominal(plan.bpmNominal());
         recording.setTimbreCode(plan.timbreCode());
-        recording.setCurveJson(RecordingMapper.writeCurve(curve, objectMapper));
+        recording.setCurveJson(RecordingMapper.writeCurve(plan.curve(), objectMapper));
         recording.setDurationSeconds(request.durationSeconds());
         recording.setSituationCode(situation);
         recording.setMoodCode(mood);
@@ -144,21 +144,19 @@ public class HeartbeatService {
                 ? 45
                 : request.durationSeconds();
         WearableHeartRateProvider.WearableSample sample = wearableHeartRateProvider.captureMockSession(duration);
-        int bpmNominal = BpmAlignment.clampBpm(sample.bpmNominal());
-        List<CurvePoint> curve = BpmAlignment.alignCurveToNominal(sample.curve(), bpmNominal, duration);
         String title = request.title() == null || request.title().isBlank()
-                ? "Wearable mock · " + bpmNominal + " BPM"
+                ? "Wearable mock · " + sample.bpmNominal() + " BPM"
                 : request.title().trim();
         HeartbeatRecording recording = baseRecording(owner);
-        recording.setTitle(BpmAlignment.alignTitleBpm(title, bpmNominal));
+        recording.setTitle(title);
         recording.setOriginTag(OriginTag.MEASURED);
         recording.setSourceKind(SourceKind.WEARABLE);
         recording.setCaptureMode(CaptureMode.WEARABLE_MOCK);
         recording.setSensorOrigin(false);
         recording.setNonSensorLabel(sample.sourceNote());
-        recording.setBpmNominal(bpmNominal);
+        recording.setBpmNominal(sample.bpmNominal());
         recording.setTimbreCode(TimbreCode.HEART);
-        recording.setCurveJson(RecordingMapper.writeCurve(curve, objectMapper));
+        recording.setCurveJson(RecordingMapper.writeCurve(sample.curve(), objectMapper));
         recording.setDurationSeconds(duration);
         return toResponse(recordingRepository.save(recording));
     }
@@ -225,5 +223,40 @@ public class HeartbeatService {
             return null;
         }
         return value.trim();
+    }
+
+    private static List<CurvePoint> alignCurveToNominal(List<CurvePoint> curve, int bpmNominal, int durationSeconds) {
+        boolean flat = curve.stream().map(CurvePoint::bpm).distinct().count() <= 1;
+        java.util.ArrayList<CurvePoint> aligned = new java.util.ArrayList<>();
+        for (CurvePoint point : curve) {
+            double t = Math.min(Math.max(0, point.tSeconds()), durationSeconds);
+            int bpm = flat ? bpmNominal : point.bpm();
+            aligned.add(new CurvePoint(t, bpm));
+        }
+        if (aligned.isEmpty()) {
+            return List.of(new CurvePoint(0, bpmNominal), new CurvePoint(durationSeconds, bpmNominal));
+        }
+        if (aligned.get(0).tSeconds() != 0) {
+            aligned.add(0, new CurvePoint(0, flat ? bpmNominal : aligned.get(0).bpm()));
+        } else if (flat) {
+            aligned.set(0, new CurvePoint(0, bpmNominal));
+        }
+        CurvePoint last = aligned.get(aligned.size() - 1);
+        if (last.tSeconds() != durationSeconds) {
+            aligned.add(new CurvePoint(durationSeconds, flat ? bpmNominal : last.bpm()));
+        } else if (flat) {
+            aligned.set(aligned.size() - 1, new CurvePoint(durationSeconds, bpmNominal));
+        }
+        return List.copyOf(aligned);
+    }
+
+    private static String alignTitleBpm(String title, int bpmNominal) {
+        if (title == null || title.isBlank()) {
+            return "Pulse · " + bpmNominal + " BPM";
+        }
+        if (title.matches("(?i).*\\d+\\s*BPM.*")) {
+            return title.replaceAll("(?i)\\d+\\s*BPM", bpmNominal + " BPM");
+        }
+        return title + " · " + bpmNominal + " BPM";
     }
 }

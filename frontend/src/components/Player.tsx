@@ -18,13 +18,12 @@ export function Player({
   const [bpm, setBpm] = useState(recording.bpmNominal);
   const [beat, setBeat] = useState(false);
 
+  useEffect(() => () => player.current.stop(), []);
+
   useEffect(() => {
     setBpm(recording.bpmNominal);
     setPlaying(false);
-    player.current.stop();
-  }, [recording.recordingId, recording.bpmNominal]);
-
-  useEffect(() => () => player.current.stop(), []);
+  }, [recording]);
 
   const path = useMemo(() => curvePath(recording), [recording]);
 
@@ -32,7 +31,6 @@ export function Player({
     if (playing) {
       player.current.stop();
       setPlaying(false);
-      setBpm(recording.bpmNominal);
       return;
     }
     setPlaying(true);
