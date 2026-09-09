@@ -24,17 +24,32 @@ Playback happens **in the browser** (Web Audio). The server stores parameters on
 
 ### How to run
 
-**Docker Compose** (MySQL + backend + frontend):
+MySQL must be reachable **only on localhost or a private network**. Do not expose it on a public IP or put a public host in committed config.
+
+**Docker Compose** (backend + frontend). Default `docker compose up` does **not** start MySQL; point `MYSQL_HOST` at an external instance:
+
+- Same host as Docker: `host.docker.internal` or the host gateway (Linux Compose maps `host.docker.internal` via `extra_hosts`).
+- Another container on an internal Compose network: that service hostname (for example `mysql` with the optional profile below).
+- Production: a private hostname or localhost in uncommitted `.env`.
 
 ```bash
 cp .env.example .env
+# Compose cannot use 127.0.0.1 inside the backend container for host MySQL.
+# Set MYSQL_HOST=host.docker.internal in .env (or the host gateway).
 docker compose up --build
 ```
 
 Open http://localhost (UI) and http://localhost/swagger-ui.html (OpenAPI).  
 Demo login: `demo` / `demo123`.
 
-**Local (two terminals)** after MySQL 8 is up and `heartbeat_send` exists:
+Optional solo local demo (bundled MySQL on the Compose network, published only on `127.0.0.1:3306`):
+
+```bash
+# Set MYSQL_HOST=mysql in .env, then:
+docker compose --profile bundled-mysql up --build
+```
+
+**Local (two terminals)** after MySQL 8 is up on loopback (`MYSQL_HOST=127.0.0.1`) and `heartbeat_send` exists:
 
 ```bash
 # terminal 1
@@ -59,10 +74,10 @@ GitHub Actions runs the Maven smoke job with a MySQL 8 service.
 
 See `.env.example`. Important variables:
 
-- `MYSQL_*` — database
+- `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` — database. `MYSQL_HOST` in committed examples is `127.0.0.1` only; production uses a private hostname or localhost in uncommitted `.env`. Never a public IP.
 - `JWT_SECRET` — HS256 secret (≥ 32 characters in production)
 - `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` — optional; empty key ⇒ deterministic rules
-- `PUBLIC_BASE_URL` — used when minting share URLs
+- `PUBLIC_BASE_URL` — used when minting share URLs (committed examples are `http://localhost:...` only)
 
 ### Architecture
 
@@ -95,16 +110,30 @@ Classic layering: **controller → service → repository**. Flyway owns the sch
 
 ### 如何运行
 
-**Docker Compose：**
+MySQL **只能**通过本机回环或私有网络访问，不要把数据库绑到公网 IP，也不要在已提交的配置里写公网主机名。
+
+**Docker Compose**（默认只起 backend + frontend，需外部 MySQL）：
+
+- 与 Docker 同机：`MYSQL_HOST=host.docker.internal` 或宿主机网关
+- 同一 Compose 内部网络：用内部服务名（例如可选 profile 下的 `mysql`）
+- 生产：未提交的 `.env` 里写私有主机名或 localhost
 
 ```bash
 cp .env.example .env
+# 容器内访问宿主机 MySQL 请把 MYSQL_HOST 设为 host.docker.internal
 docker compose up --build
 ```
 
 打开 http://localhost ，演示账号 `demo` / `demo123`。
 
-**本地开发：** 先准备 MySQL 8 与库 `heartbeat_send`，再分别启动 `backend` 与 `frontend`（见英文小节命令）。
+可选的单机演示（启动捆绑 MySQL，主机侧仅监听 `127.0.0.1:3306`）：
+
+```bash
+# 在 .env 中设置 MYSQL_HOST=mysql，然后：
+docker compose --profile bundled-mysql up --build
+```
+
+**本地开发：** 先在本机回环上准备 MySQL 8 与库 `heartbeat_send`（`MYSQL_HOST=127.0.0.1`），再分别启动 `backend` 与 `frontend`（见英文小节命令）。
 
 ### 测试
 

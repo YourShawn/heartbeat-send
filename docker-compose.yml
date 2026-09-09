@@ -1,13 +1,18 @@
 services:
+  # Optional solo-demo database. Not started by default (`docker compose up`
+  # expects an external MySQL on localhost / a private network — never a public IP).
   mysql:
+    profiles: ["bundled-mysql"]
     image: mysql:8.0
     environment:
-      MYSQL_DATABASE: heartbeat_send
-      MYSQL_USER: heartbeat
-      MYSQL_PASSWORD: heartbeat
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-heartbeat_send}
+      MYSQL_USER: ${MYSQL_USER:-heartbeat}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-heartbeat}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}
+    # Bind only loopback on the host. Other compose services still reach this
+    # container as hostname `mysql` on the internal network.
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - heartbeat_mysql:/var/lib/mysql
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci", "--default-time-zone=+00:00"]
@@ -19,15 +24,20 @@ services:
 
   backend:
     build: ./backend
+    # required: false so default `up` does not start or wait for `mysql`.
+    # With `--profile bundled-mysql`, Compose still waits until MySQL is healthy.
     depends_on:
       mysql:
         condition: service_healthy
+        required: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: heartbeat_send
-      MYSQL_USER: heartbeat
-      MYSQL_PASSWORD: heartbeat
+      MYSQL_HOST: ${MYSQL_HOST:-host.docker.internal}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-heartbeat_send}
+      MYSQL_USER: ${MYSQL_USER:-heartbeat}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-heartbeat}
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-at-least-32-chars}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
