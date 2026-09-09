@@ -40,10 +40,10 @@ One saved **playback program** (BPM + timbre + curve). The server never stores a
 | `capture_mode` | How values were produced: `USER_DEFINED`, `RULE_SYNTH`, `OPENAI_SYNTH`, `WEARABLE_MOCK`, `WEARABLE_LIVE`. |
 | `sensor_origin` | `1` **only** when BPM came from a live wearable sensor. Mock, synth, and custom are always `0`. |
 | `non_sensor_label` | Required when `sensor_origin = 0`. UI text that this is not sensor data. |
-| `bpm_nominal` | Representative BPM for playback (40–220). |
+| `bpm_nominal` | Representative BPM for playback (40–220), stored as INT. |
 | `timbre_code` | Playback voice: `SINE`, `HEART`, `DRUM`, `SOFT`. |
 | `curve_json` | JSON array of `{tSeconds, bpm}` control points. |
-| `duration_seconds` | Intended playback length. |
+| `duration_seconds` | Intended playback length in whole seconds (INT). |
 | `situation_code` | Questionnaire situation; null if not synth. |
 | `mood_code` | Questionnaire mood; null if not synth. |
 | `intensity_code` | Questionnaire intensity; null if not synth. |

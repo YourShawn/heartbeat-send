@@ -26,10 +26,10 @@ public class AppUser {
     @Column(name = "display_name", nullable = false, length = 80)
     private String displayName;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, columnDefinition = "DATETIME(3)")
     private Instant createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME(3)")
     private Instant updatedAt;
 
     public Long getUserId() {

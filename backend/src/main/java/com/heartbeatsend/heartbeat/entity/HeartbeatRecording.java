@@ -46,7 +46,7 @@ public class HeartbeatRecording {
     @Column(name = "capture_mode", nullable = false, length = 24)
     private CaptureMode captureMode;
 
-    @Column(name = "sensor_origin", nullable = false)
+    @Column(name = "sensor_origin", nullable = false, columnDefinition = "TINYINT(1)")
     private boolean sensorOrigin;
 
     @Column(name = "non_sensor_label", length = 200)
@@ -80,16 +80,16 @@ public class HeartbeatRecording {
     @Column(name = "synth_model", length = 80)
     private String synthModel;
 
-    @Column(name = "share_token", length = 32)
+    @Column(name = "share_token", length = 32, columnDefinition = "CHAR(32)")
     private String shareToken;
 
-    @Column(name = "share_enabled", nullable = false)
+    @Column(name = "share_enabled", nullable = false, columnDefinition = "TINYINT(1)")
     private boolean shareEnabled;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, columnDefinition = "DATETIME(3)")
     private Instant createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME(3)")
     private Instant updatedAt;
 
     public Long getRecordingId() {
