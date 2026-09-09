@@ -22,9 +22,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final HeartbeatProperties properties;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, HeartbeatProperties properties) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.properties = properties;
     }
 
     @Bean
@@ -63,9 +65,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of(
-                "http://localhost:*",
-                "http://127.0.0.1:*"
+        config.setAllowedOriginPatterns(CorsOriginPatterns.resolve(
+                properties.getCors().getAllowedOriginPatterns(),
+                properties.getPublicBaseUrl()
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

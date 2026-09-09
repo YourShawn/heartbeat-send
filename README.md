@@ -42,6 +42,18 @@ docker compose up --build
 Open http://localhost (UI) and http://localhost/swagger-ui.html (OpenAPI).  
 Demo login: `demo` / `demo123`.
 
+After a non-localhost deploy, test login **from the browser** (DevTools) so the real `Origin` header is sent. A **403 Invalid CORS request** means the SPA origin is not allowed — set `CORS_ALLOWED_ORIGIN_PATTERNS` (and/or `PUBLIC_BASE_URL`) in uncommitted `.env` to include `http://YOUR_HOST:*`. Do not commit a public IP. Optional curl check:
+
+```bash
+curl -i -X OPTIONS \
+  -H 'Origin: http://YOUR_HOST' \
+  -H 'Access-Control-Request-Method: POST' \
+  -H 'Access-Control-Request-Headers: content-type' \
+  http://YOUR_HOST/api/auth/login
+```
+
+You should see `Access-Control-Allow-Origin` (not 403), then sign in from the UI.
+
 Optional solo local demo (bundled MySQL on the Compose network, published only on `127.0.0.1:3306`):
 
 ```bash
@@ -77,7 +89,8 @@ See `.env.example`. Important variables:
 - `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` — database. `MYSQL_HOST` in committed examples is `127.0.0.1` only; production uses a private hostname or localhost in uncommitted `.env`. Never a public IP.
 - `JWT_SECRET` — HS256 secret (≥ 32 characters in production)
 - `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` — optional; empty key ⇒ deterministic rules
-- `PUBLIC_BASE_URL` — used when minting share URLs (committed examples are `http://localhost:...` only)
+- `PUBLIC_BASE_URL` — used when minting share URLs (committed examples are `http://localhost:...` only). Its origin is also allowed for CORS.
+- `CORS_ALLOWED_ORIGIN_PATTERNS` — comma-separated browser Origin patterns (default `http://localhost:*,http://127.0.0.1:*`). For a host deploy, add `http://YOUR_HOST:*` in uncommitted `.env`; do not commit a public IP.
 
 ### Architecture
 
@@ -126,6 +139,8 @@ docker compose up --build
 
 打开 http://localhost ，演示账号 `demo` / `demo123`。
 
+部署到非 localhost 后，请用**浏览器**测一次登录（带真实 `Origin`）。若出现 **403 Invalid CORS request**，在未提交的 `.env` 里为 `CORS_ALLOWED_ORIGIN_PATTERNS` 加上 `http://YOUR_HOST:*`（或设好 `PUBLIC_BASE_URL`）。不要把公网 IP 写进已提交的文件。
+
 可选的单机演示（启动捆绑 MySQL，主机侧仅监听 `127.0.0.1:3306`）：
 
 ```bash
@@ -144,7 +159,7 @@ cd backend && mvn test
 
 ### 配置与架构
 
-环境变量见 `.env.example`。无 `OPENAI_API_KEY` 时自动回退到确定性规则。表结构与每一列的含义见 [`docs/schema.md`](docs/schema.md)。
+环境变量见 `.env.example`。无 `OPENAI_API_KEY` 时自动回退到确定性规则。非 localhost 部署请在未提交的 `.env` 设置 `CORS_ALLOWED_ORIGIN_PATTERNS`（或 `PUBLIC_BASE_URL`），部署后用浏览器 Origin 测登录。表结构与每一列的含义见 [`docs/schema.md`](docs/schema.md)。
 
 模块划分：`common`（JWT / 安全 / OpenAPI）、`auth`（登录与演示用户）、`heartbeat`（收藏、自定义、生成、可穿戴占位、分享）。
 

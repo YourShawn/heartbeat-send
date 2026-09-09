@@ -7,6 +7,7 @@ public class HeartbeatProperties {
 
     private final Jwt jwt = new Jwt();
     private final OpenAi openai = new OpenAi();
+    private final Cors cors = new Cors();
     private String publicBaseUrl = "http://localhost:8080";
 
     public Jwt getJwt() {
@@ -15,6 +16,10 @@ public class HeartbeatProperties {
 
     public OpenAi getOpenai() {
         return openai;
+    }
+
+    public Cors getCors() {
+        return cors;
     }
 
     public String getPublicBaseUrl() {
@@ -77,6 +82,18 @@ public class HeartbeatProperties {
 
         public boolean isConfigured() {
             return apiKey != null && !apiKey.isBlank();
+        }
+    }
+
+    public static class Cors {
+        private String allowedOriginPatterns = CorsOriginPatterns.DEFAULT_CSV;
+
+        public String getAllowedOriginPatterns() {
+            return allowedOriginPatterns;
+        }
+
+        public void setAllowedOriginPatterns(String allowedOriginPatterns) {
+            this.allowedOriginPatterns = allowedOriginPatterns;
         }
     }
 }

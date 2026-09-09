@@ -41,6 +41,8 @@ heartbeat:
     secret: ${JWT_SECRET:change-me-to-a-long-random-secret-at-least-32-chars}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:8080}
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
   openai:
     api-key: ${OPENAI_API_KEY:}
     base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}

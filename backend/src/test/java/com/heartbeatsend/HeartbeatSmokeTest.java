@@ -2,7 +2,9 @@ package com.heartbeatsend;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -131,6 +133,40 @@ class HeartbeatSmokeTest {
                                 {"username":"demo","password":"wrong-password"}
                                 """))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void corsPreflightAllowsLocalhostOriginWithCredentials() throws Exception {
+        mockMvc.perform(options("/api/auth/login")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "content-type,authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"))
+                .andExpect(header().string("Access-Control-Allow-Methods", org.hamcrest.Matchers.containsString("POST")));
+    }
+
+    @Test
+    void corsLoginAllowsLocalhostOrigin() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .header("Origin", "http://127.0.0.1:80")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"%s","password":"%s"}
+                                """.formatted(DemoUserSeeder.DEMO_USERNAME, DemoUserSeeder.DEMO_PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://127.0.0.1:80"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"))
+                .andExpect(jsonPath("$.accessToken").isString());
+    }
+
+    @Test
+    void corsPreflightRejectsUnknownOrigin() throws Exception {
+        mockMvc.perform(options("/api/auth/login")
+                        .header("Origin", "http://evil.example")
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isForbidden());
     }
 
     private String login() throws Exception {
