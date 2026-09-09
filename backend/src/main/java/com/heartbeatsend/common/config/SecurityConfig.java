@@ -1,7 +1,9 @@
 package com.heartbeatsend.common.config;
 
 import com.heartbeatsend.common.security.JwtAuthFilter;
+import java.util.Arrays;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,11 +24,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
-    private final HeartbeatProperties properties;
+    private final String corsAllowedOriginPatterns;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, HeartbeatProperties properties) {
+    public SecurityConfig(
+            JwtAuthFilter jwtAuthFilter,
+            @Value("${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,http://103.11.78.128:*}")
+                    String corsAllowedOriginPatterns) {
         this.jwtAuthFilter = jwtAuthFilter;
-        this.properties = properties;
+        this.corsAllowedOriginPatterns = corsAllowedOriginPatterns;
     }
 
     @Bean
@@ -65,10 +70,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(CorsOriginPatterns.resolve(
-                properties.getCors().getAllowedOriginPatterns(),
-                properties.getPublicBaseUrl()
-        ));
+        Arrays.stream(corsAllowedOriginPatterns.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .forEach(config::addAllowedOriginPattern);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));
